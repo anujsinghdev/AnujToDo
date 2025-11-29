@@ -12,9 +12,12 @@ interface TodoRepository {
     suspend fun updateTodo(todo: TodoItem)
     suspend fun deleteTodo(todo: TodoItem)
 
-    // New methods
     fun getAllFolders(): Flow<List<TodoFolder>>
     suspend fun insertFolder(folder: TodoFolder)
+
     fun getAllLists(): Flow<List<TodoList>>
-    suspend fun insertList(list: TodoList)
+    fun getListById(id: Long): Flow<TodoList> // New
+    suspend fun insertList(list: TodoList): Long // Changed to return Long
+    suspend fun updateListName(id: Long, name: String) // New
+    suspend fun deleteListById(id: Long) // New
 }

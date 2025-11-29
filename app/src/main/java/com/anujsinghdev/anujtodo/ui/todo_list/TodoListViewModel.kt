@@ -1,18 +1,17 @@
 package com.anujsinghdev.anujtodo.ui.todo_list
 
-import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.anujsinghdev.anujtodo.data.local.UserPreferencesRepository
 import com.anujsinghdev.anujtodo.domain.model.TodoFolder
+import com.anujsinghdev.anujtodo.domain.model.TodoItem
 import com.anujsinghdev.anujtodo.domain.model.TodoList
 import com.anujsinghdev.anujtodo.domain.repository.TodoRepository
 import com.anujsinghdev.anujtodo.domain.usecase.TodoUseCases
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,20 +29,47 @@ data class UiTaskList(
     val count: Int = 0
 )
 
+// Data class to hold search results
+// Renamed to avoid "Redeclaration" error
+data class TodoListSearchResults(
+    val lists: List<TodoList> = emptyList(),
+    val tasks: List<TodoItem> = emptyList()
+)
+
 @HiltViewModel
 class TodoListViewModel @Inject constructor(
     private val todoUseCases: TodoUseCases,
-    private val todoRepository: TodoRepository, // Added Repository
+    private val todoRepository: TodoRepository,
     private val userPrefs: UserPreferencesRepository
 ) : ViewModel() {
 
-    private val _state = mutableStateOf(TodoListState())
-    val state: State<TodoListState> = _state
-
+    // --- User Info ---
     var userName = mutableStateOf("User")
     var userEmail = mutableStateOf("email@example.com")
 
-    // UI State
+    // --- Search State ---
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
+
+    private val _isSearchActive = MutableStateFlow(false)
+    val isSearchActive = _isSearchActive.asStateFlow()
+
+    // --- Combined Search Results Flow ---
+    val searchResults: Flow<TodoListSearchResults> = combine(
+        _searchQuery,
+        todoRepository.getAllLists(),
+        todoRepository.getAllTodos()
+    ) { query, lists, tasks ->
+        if (query.isBlank()) {
+            TodoListSearchResults()
+        } else {
+            val filteredLists = lists.filter { it.name.contains(query, ignoreCase = true) }
+            val filteredTasks = tasks.filter { it.title.contains(query, ignoreCase = true) }
+            TodoListSearchResults(filteredLists, filteredTasks)
+        }
+    }
+
+    // --- Folders & Lists State ---
     private val _folders = mutableStateListOf<UiFolder>()
     val folders: List<UiFolder> get() = _folders
 
@@ -64,17 +90,12 @@ class TodoListViewModel @Inject constructor(
 
     private fun observeFoldersAndLists() {
         viewModelScope.launch {
-            // Combine Folders and Lists flows from DB
             combine(
                 todoRepository.getAllFolders(),
                 todoRepository.getAllLists()
             ) { dbFolders, dbLists ->
-
-                // 1. Process Folders (and find their lists)
                 val mappedFolders = dbFolders.map { folder ->
-                    // Preserve expanded state if we already have it in memory
                     val isExpanded = _folders.find { it.id == folder.id }?.isExpanded ?: false
-
                     UiFolder(
                         id = folder.id,
                         name = folder.name,
@@ -83,24 +104,32 @@ class TodoListViewModel @Inject constructor(
                             .map { list -> UiTaskList(id = list.id, name = list.name) }
                     )
                 }
-
-                // 2. Process Root Lists (those without a folder)
                 val mappedRootLists = dbLists.filter { it.folderId == null }
                     .map { list -> UiTaskList(id = list.id, name = list.name) }
 
                 Pair(mappedFolders, mappedRootLists)
-
             }.collect { (newFolders, newRootLists) ->
                 _folders.clear()
                 _folders.addAll(newFolders)
-
                 _rootLists.clear()
                 _rootLists.addAll(newRootLists)
             }
         }
     }
 
-    // --- Actions ---
+    // --- Search Actions ---
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun onSearchActiveChange(active: Boolean) {
+        _isSearchActive.value = active
+        if (!active) {
+            _searchQuery.value = "" // Clear query when closing search
+        }
+    }
+
+    // --- Folder/List Actions (FIXED) ---
 
     fun createFolder(name: String) {
         viewModelScope.launch {
@@ -110,27 +139,27 @@ class TodoListViewModel @Inject constructor(
 
     fun createList(name: String) {
         viewModelScope.launch {
+            // Create a list with NO folder (root level)
             todoRepository.insertList(TodoList(name = name, folderId = null))
         }
     }
 
     fun addListToFolder(folderId: Long, listName: String) {
         viewModelScope.launch {
+            // Create a list linked to the specific folder ID
             todoRepository.insertList(TodoList(name = listName, folderId = folderId))
-            // Expand the folder in UI so user sees the new list immediately
-            val index = _folders.indexOfFirst { it.id == folderId }
-            if (index != -1) {
-                val folder = _folders[index]
-                _folders[index] = folder.copy(isExpanded = true)
-            }
+
+            // Auto-expand the folder so the user sees the new list immediately
+            toggleFolderExpanded(folderId, forceExpand = true)
         }
     }
 
-    fun toggleFolderExpanded(folderId: Long) {
+    fun toggleFolderExpanded(folderId: Long, forceExpand: Boolean = false) {
         val index = _folders.indexOfFirst { it.id == folderId }
         if (index != -1) {
             val folder = _folders[index]
-            _folders[index] = folder.copy(isExpanded = !folder.isExpanded)
+            val newExpandedState = if (forceExpand) true else !folder.isExpanded
+            _folders[index] = folder.copy(isExpanded = newExpandedState)
         }
     }
 }

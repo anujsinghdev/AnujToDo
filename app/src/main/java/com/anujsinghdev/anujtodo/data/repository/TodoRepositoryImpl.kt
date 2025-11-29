@@ -12,21 +12,28 @@ class TodoRepositoryImpl(
 ) : TodoRepository {
 
     override fun getAllTodos(): Flow<List<TodoItem>> = dao.getAllTodos()
-
     override suspend fun getTodoById(id: Int): TodoItem? = dao.getTodoById(id)
-
     override suspend fun insertTodo(todo: TodoItem) = dao.insertTodo(todo)
-
     override suspend fun updateTodo(todo: TodoItem) = dao.updateTodo(todo)
-
     override suspend fun deleteTodo(todo: TodoItem) = dao.deleteTodo(todo)
 
-    // New Implementations
     override fun getAllFolders(): Flow<List<TodoFolder>> = dao.getAllFolders()
-
     override suspend fun insertFolder(folder: TodoFolder) = dao.insertFolder(folder)
 
     override fun getAllLists(): Flow<List<TodoList>> = dao.getAllLists()
 
-    override suspend fun insertList(list: TodoList) = dao.insertList(list)
+    // --- NEW IMPLEMENTATIONS ---
+    override fun getListById(id: Long): Flow<TodoList> = dao.getListById(id)
+
+    override suspend fun insertList(list: TodoList): Long {
+        return dao.insertList(list)
+    }
+
+    override suspend fun updateListName(id: Long, name: String) {
+        dao.updateListName(id, name)
+    }
+
+    override suspend fun deleteListById(id: Long) {
+        dao.deleteListById(id)
+    }
 }

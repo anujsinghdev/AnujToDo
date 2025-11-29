@@ -1,39 +1,62 @@
 package com.anujsinghdev.anujtodo.ui.list_detail
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FileCopy
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.anujsinghdev.anujtodo.domain.model.RepeatMode
 import com.anujsinghdev.anujtodo.domain.model.TodoItem
+import com.anujsinghdev.anujtodo.ui.todo_list.DialogBg
+import com.anujsinghdev.anujtodo.ui.todo_list.LoginBlue
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -54,30 +77,79 @@ fun ListDetailScreen(
 ) {
     val tasks by viewModel.getTasksForList(listId).collectAsState(initial = emptyList())
 
-    // Split tasks into Active and Completed
+    // Observe Real List Name from Database
+    val realListName by viewModel.getListNameFlow(listId, listName).collectAsState(initial = listName)
+
+    // Split tasks for display
     val activeTasks = remember(tasks) { tasks.filter { !it.isCompleted } }
     val completedTasks = remember(tasks) { tasks.filter { it.isCompleted } }
 
-    // States
+    // States for Popups and Dialogs
     var showAddTaskSheet by remember { mutableStateOf(false) }
     var selectedTaskToEdit by remember { mutableStateOf<TodoItem?>(null) }
-    var isCompletedExpanded by remember { mutableStateOf(true) } // Default expanded
+    var isCompletedExpanded by remember { mutableStateOf(true) }
+
+    // Menu States
+    var showMenu by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var showSortDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    val currentSortOption by viewModel.currentSortOption.collectAsState()
 
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
             TopAppBar(
-                title = { Text(listName, color = PinkAccent, fontWeight = FontWeight.Bold, fontSize = 24.sp) },
+                title = { Text(realListName, color = PinkAccent, fontWeight = FontWeight.Bold, fontSize = 24.sp) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = PinkAccent)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, "Menu", tint = PinkAccent)
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        containerColor = SurfaceColor,
+                        modifier = Modifier.width(220.dp)
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Rename list", color = Color.White) },
+                            onClick = { showMenu = false; showRenameDialog = true },
+                            leadingIcon = { Icon(Icons.Outlined.Edit, null, tint = Color.White) },
+                            enabled = listId != SMART_LIST_COMPLETED_ID
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Sort by", color = Color.White) },
+                            onClick = { showMenu = false; showSortDialog = true },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Sort, null, tint = Color.White) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Duplicate list", color = Color.White) },
+                            onClick = {
+                                showMenu = false
+                                viewModel.duplicateList(listId, realListName)
+                            },
+                            leadingIcon = { Icon(Icons.Outlined.FileCopy, null, tint = Color.White) },
+                            enabled = listId != SMART_LIST_COMPLETED_ID
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete list", color = Color.Red) },
+                            onClick = { showMenu = false; showDeleteDialog = true },
+                            leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = Color.Red) },
+                            enabled = listId != SMART_LIST_COMPLETED_ID
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundColor)
             )
         },
         floatingActionButton = {
-            // Only show Add button if NOT in the special "Completed" view (optional preference)
             if (listId != SMART_LIST_COMPLETED_ID) {
                 FloatingActionButton(
                     onClick = { showAddTaskSheet = true },
@@ -90,62 +162,158 @@ fun ListDetailScreen(
             }
         }
     ) { padding ->
-        if (tasks.isEmpty() && listId != SMART_LIST_COMPLETED_ID) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                EmptyStateView(listName)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp)
-            ) {
-                // 1. Active Tasks
-                items(items = activeTasks, key = { it.id }) { task ->
-                    Box(modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)) {
-                        TaskItemView(
-                            todo = task,
-                            onToggle = { viewModel.toggleTask(task) },
-                            onClick = { selectedTaskToEdit = task }
-                        )
+        Box(modifier = Modifier.padding(padding)) {
+            if (listId == SMART_LIST_COMPLETED_ID) {
+                val groupedTasks by viewModel.groupedCompletedTasks.collectAsState(initial = emptyMap())
+                if (groupedTasks.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        EmptyStateView("Completed")
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                } else {
+                    GroupedCompletedList(
+                        groupedTasks = groupedTasks,
+                        onToggleTask = { viewModel.toggleTask(it) },
+                        onFlagTask = { viewModel.toggleFlag(it) },
+                        onEditTask = { selectedTaskToEdit = it }
+                    )
                 }
-
-                // 2. Completed Header (Only if there are completed tasks)
-                if (completedTasks.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        CompletedHeader(
-                            count = completedTasks.size,
-                            isExpanded = isCompletedExpanded,
-                            onClick = { isCompletedExpanded = !isCompletedExpanded }
-                        )
+            } else {
+                if (tasks.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        EmptyStateView(realListName)
                     }
-                }
-
-                // 3. Completed Tasks (Collapsible)
-                if (isCompletedExpanded) {
-                    items(items = completedTasks, key = { it.id }) { task ->
-                        Box(modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)) {
-                            TaskItemView(
-                                todo = task,
-                                onToggle = { viewModel.toggleTask(task) },
-                                onClick = { selectedTaskToEdit = task }
-                            )
+                } else {
+                    // Added rubberBandEffect() here
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .rubberBandEffect() // <--- Added Animation Modifier
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        items(items = activeTasks, key = { it.id }) { task ->
+                            Box(modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)) {
+                                TaskItemView(
+                                    todo = task,
+                                    onToggle = { viewModel.toggleTask(task) },
+                                    onFlag = { viewModel.toggleFlag(task) },
+                                    onClick = { selectedTaskToEdit = task }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (completedTasks.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                CompletedHeader(
+                                    title = "Completed",
+                                    count = completedTasks.size,
+                                    isExpanded = isCompletedExpanded,
+                                    onClick = { isCompletedExpanded = !isCompletedExpanded }
+                                )
+                            }
+                            if (isCompletedExpanded) {
+                                items(items = completedTasks, key = { it.id }) { task ->
+                                    Box(modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null)) {
+                                        TaskItemView(
+                                            todo = task,
+                                            onToggle = { viewModel.toggleTask(task) },
+                                            onFlag = { viewModel.toggleFlag(task) },
+                                            onClick = { selectedTaskToEdit = task }
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+                        }
+                        item { Spacer(modifier = Modifier.height(80.dp)) }
                     }
                 }
-
-                // Add bottom spacing for FAB
-                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
     }
 
-    // --- Popups ---
+    // --- DIALOGS (Rename, Sort, Delete) ---
+    if (showRenameDialog) {
+        ListNameDialog(
+            title = "Rename list",
+            initialName = realListName,
+            onDismiss = { showRenameDialog = false },
+            onConfirm = { newName ->
+                viewModel.renameList(listId, newName)
+                showRenameDialog = false
+            }
+        )
+    }
+
+    if (showSortDialog) {
+        Dialog(onDismissRequest = { showSortDialog = false }) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = DialogBg),
+                shape = RoundedCornerShape(4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(vertical = 16.dp)) {
+                    Text("Sort by", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                    val options = listOf(
+                        SortOption.IMPORTANCE to "Importance",
+                        SortOption.DUE_DATE to "Due date",
+                        SortOption.ALPHABETICAL to "Alphabetically",
+                        SortOption.CREATION_DATE to "Creation date"
+                    )
+                    options.forEach { (option, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.updateSortOption(option)
+                                    showSortDialog = false
+                                }
+                                .padding(horizontal = 24.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if(option == SortOption.IMPORTANCE) Icons.Default.StarBorder else if(option == SortOption.DUE_DATE) Icons.Default.CalendarMonth else if(option == SortOption.ALPHABETICAL) Icons.AutoMirrored.Outlined.Sort else Icons.Default.Add,
+                                contentDescription = null,
+                                tint = if(option == currentSortOption) PinkAccent else Color.Gray,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(text = label, color = if(option == currentSortOption) PinkAccent else Color.White, fontSize = 16.sp)
+                            Spacer(modifier = Modifier.weight(1f))
+                            if (option == currentSortOption) {
+                                Icon(Icons.Default.CheckCircle, null, tint = PinkAccent, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete list?", color = Color.White) },
+            text = { Text("This will delete the list \"$realListName\" and all its tasks permanently.", color = Color.Gray) },
+            containerColor = DialogBg,
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteList(listId) {
+                            navController.popBackStack()
+                        }
+                        showDeleteDialog = false
+                    }
+                ) { Text("DELETE", color = Color.Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("CANCEL", color = Color.White) }
+            }
+        )
+    }
+
+    // --- Task Popups ---
     if (showAddTaskSheet) {
         TaskInputBottomSheet(
             title = "Add Task",
@@ -179,95 +347,71 @@ fun ListDetailScreen(
     }
 }
 
-// --- Components ---
+// --- Components (GroupedList, TaskItemView, etc.) ---
 
 @Composable
-fun CompletedHeader(
-    count: Int,
-    isExpanded: Boolean,
-    onClick: () -> Unit
+fun GroupedCompletedList(
+    groupedTasks: Map<String, List<TodoItem>>,
+    onToggleTask: (TodoItem) -> Unit,
+    onFlagTask: (TodoItem) -> Unit,
+    onEditTask: (TodoItem) -> Unit
 ) {
-    val rotation by animateFloatAsState(if (isExpanded) 90f else 0f, label = "Arrow")
-
-    Row(
+    // Added rubberBandEffect() here
+    LazyColumn(
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable { onClick() }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .fillMaxSize()
+            .rubberBandEffect() // <--- Added Animation Modifier
+            .padding(horizontal = 16.dp)
     ) {
-        Icon(
-            imageVector = Icons.Default.KeyboardArrowRight,
-            contentDescription = null,
-            tint = TextSecondary,
-            modifier = Modifier
-                .rotate(rotation)
-                .size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "Completed $count",
-            color = TextSecondary,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium
-        )
+        groupedTasks.forEach { (listName, tasks) ->
+            item {
+                var isExpanded by remember { mutableStateOf(true) }
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CompletedHeader(title = listName, count = tasks.size, isExpanded = isExpanded, onClick = { isExpanded = !isExpanded })
+                    if (isExpanded) {
+                        tasks.forEach { task ->
+                            TaskItemView(todo = task, onToggle = { onToggleTask(task) }, onFlag = { onFlagTask(task) }, onClick = { onEditTask(task) })
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+        }
+        item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 }
 
 @Composable
-fun TaskItemView(
-    todo: TodoItem,
-    onToggle: () -> Unit,
-    onClick: () -> Unit
-) {
-    val textColor = if (todo.isCompleted) Color.Gray else Color.White
-    val textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None
-
-    // Background Card
+fun CompletedHeader(title: String, count: Int, isExpanded: Boolean, onClick: () -> Unit) {
+    val rotation by animateFloatAsState(if (isExpanded) 90f else 0f, label = "Arrow")
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF252525))
-            .clickable { onClick() }
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onClick() }.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Toggle Button
-        IconButton(
-            onClick = onToggle,
-            modifier = Modifier.size(24.dp)
-        ) {
-            Icon(
-                imageVector = if (todo.isCompleted) Icons.Default.CheckCircle else Icons.Outlined.Circle,
-                contentDescription = "Toggle",
-                tint = if (todo.isCompleted) PinkAccent else Color.Gray
-            )
+        Icon(Icons.Default.KeyboardArrowRight, null, tint = TextSecondary, modifier = Modifier.rotate(rotation).size(24.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = "$title $count", color = TextSecondary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+fun TaskItemView(todo: TodoItem, onToggle: () -> Unit, onFlag: () -> Unit, onClick: () -> Unit) {
+    val textColor = if (todo.isCompleted) Color.Gray else Color.White
+    val textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color(0xFF252525)).clickable { onClick() }.padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onToggle, modifier = Modifier.size(24.dp)) {
+            Icon(if (todo.isCompleted) Icons.Default.CheckCircle else Icons.Outlined.Circle, "Toggle", tint = if (todo.isCompleted) PinkAccent else Color.Gray)
         }
-
         Spacer(modifier = Modifier.width(16.dp))
-
-        // Text Content
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = todo.title,
-                color = textColor,
-                fontSize = 16.sp,
-                textDecoration = textDecoration
-            )
-            // Optional: If you want to show list name for the "All Completed" screen,
-            // you'd need the list name passed in or fetched via relation.
-            // For now, displaying Due Date/Repeat info:
+            Text(text = todo.title, color = textColor, fontSize = 16.sp, textDecoration = textDecoration)
             if (todo.dueDate != null || todo.repeatMode != RepeatMode.NONE) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                    if (todo.dueDate != null) {
-                        Text(
-                            text = formatDate(todo.dueDate),
-                            color = if (todo.dueDate < System.currentTimeMillis() && !todo.isCompleted) Color.Red else Color.Gray,
-                            fontSize = 12.sp
-                        )
-                    }
+                    if (todo.dueDate != null) Text(formatDate(todo.dueDate), color = if (todo.dueDate < System.currentTimeMillis() && !todo.isCompleted) Color.Red else Color.Gray, fontSize = 12.sp)
                     if (todo.repeatMode != RepeatMode.NONE) {
                         if (todo.dueDate != null) Spacer(modifier = Modifier.width(8.dp))
                         Icon(Icons.Default.Repeat, null, tint = Color.Gray, modifier = Modifier.size(12.dp))
@@ -275,88 +419,8 @@ fun TaskItemView(
                 }
             }
         }
-
-        // Star Icon Removed as per request
-    }
-}
-
-// --- Inputs & Helpers (Same as before) ---
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TaskInputBottomSheet(
-    title: String,
-    initialText: String,
-    initialDate: Long?,
-    initialRepeat: RepeatMode,
-    onDismiss: () -> Unit,
-    onSave: (String, Long?, RepeatMode) -> Unit
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var text by remember { mutableStateOf(initialText) }
-    var date by remember { mutableStateOf(initialDate) }
-    var repeat by remember { mutableStateOf(initialRepeat) }
-
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showRepeatMenu by remember { mutableStateOf(false) }
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = SurfaceColor,
-        dragHandle = null
-    ) {
-        Column(modifier = Modifier.padding(16.dp).imePadding()) {
-            Text(title, color = TextSecondary, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextField(
-                    value = text,
-                    onValueChange = { text = it },
-                    placeholder = { Text("What needs to be done?", color = Color.Gray) },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = PinkAccent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(
-                    onClick = { if (text.isNotBlank()) onSave(text, date, repeat) },
-                    enabled = text.isNotBlank(),
-                    modifier = Modifier.background(if (text.isNotBlank()) PinkAccent else Color.DarkGray, RoundedCornerShape(8.dp)).size(36.dp)
-                ) {
-                    Icon(Icons.Default.ArrowUpward, null, tint = Color.Black)
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Row {
-                ActionChip(Icons.Default.CalendarMonth, if (date != null) formatDate(date!!) else "Set due date", date != null) { showDatePicker = true }
-                Spacer(modifier = Modifier.width(12.dp))
-                Box {
-                    ActionChip(Icons.Default.Repeat, if (repeat != RepeatMode.NONE) repeat.name.lowercase().capitalize() else "Repeat", repeat != RepeatMode.NONE) { showRepeatMenu = true }
-                    DropdownMenu(expanded = showRepeatMenu, onDismissRequest = { showRepeatMenu = false }, containerColor = Color(0xFF2C2C2C)) {
-                        RepeatMode.values().forEach { mode ->
-                            DropdownMenuItem(text = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }, color = Color.White) }, onClick = { repeat = mode; showRepeatMenu = false })
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = { TextButton(onClick = { date = datePickerState.selectedDateMillis; showDatePicker = false }) { Text("OK", color = PinkAccent) } },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel", color = PinkAccent) } },
-            colors = DatePickerDefaults.colors(containerColor = SurfaceColor)
-        ) {
-            DatePicker(state = datePickerState, colors = DatePickerDefaults.colors(headlineContentColor = Color.White, titleContentColor = Color.White, weekdayContentColor = Color.White, dayContentColor = Color.White, selectedDayContainerColor = PinkAccent, todayDateBorderColor = PinkAccent, yearContentColor = Color.White, currentYearContentColor = Color.White, selectedYearContainerColor = PinkAccent))
+        IconButton(onClick = onFlag, modifier = Modifier.size(24.dp)) {
+            Icon(if (todo.isFlagged) Icons.Default.Star else Icons.Outlined.StarBorder, "Flag", tint = if (todo.isFlagged) Color.White else Color.Gray)
         }
     }
 }
@@ -377,6 +441,25 @@ fun formatDate(timestamp: Long): String {
 }
 
 @Composable
+fun ListNameDialog(title: String, initialName: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+    var text by remember { mutableStateOf(initialName) }
+    Dialog(onDismissRequest = onDismiss) {
+        Card(colors = CardDefaults.cardColors(containerColor = DialogBg), shape = RoundedCornerShape(4.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(16.dp))
+                TextField(value = text, onValueChange = { text = it }, singleLine = true, colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = PinkAccent, focusedIndicatorColor = PinkAccent, unfocusedIndicatorColor = Color.Gray), modifier = Modifier.fillMaxWidth())
+                Spacer(modifier = Modifier.height(24.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("CANCEL", color = Color.Gray) }
+                    TextButton(onClick = { if(text.isNotBlank()) onConfirm(text) }, enabled = text.isNotBlank()) { Text("SAVE", color = if(text.isNotBlank()) PinkAccent else Color.Gray) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun EmptyStateView(listName: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text("No tasks in $listName", color = Color.Gray)
@@ -384,3 +467,110 @@ fun EmptyStateView(listName: String) {
 }
 
 fun String.capitalize() = replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TaskInputBottomSheet(
+    title: String,
+    initialText: String,
+    initialDate: Long?,
+    initialRepeat: RepeatMode,
+    onDismiss: () -> Unit,
+    onSave: (String, Long?, RepeatMode) -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var text by remember { mutableStateOf(initialText) }
+    var date by remember { mutableStateOf(initialDate) }
+    var repeat by remember { mutableStateOf(initialRepeat) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showRepeatMenu by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = SurfaceColor, dragHandle = null) {
+        Column(modifier = Modifier.padding(16.dp).imePadding()) {
+            Text(title, color = TextSecondary, fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextField(value = text, onValueChange = { text = it }, placeholder = { Text("What needs to be done?", color = Color.Gray) }, colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent, cursorColor = PinkAccent, focusedTextColor = Color.White, unfocusedTextColor = Color.White), modifier = Modifier.weight(1f))
+                IconButton(onClick = { if (text.isNotBlank()) onSave(text, date, repeat) }, enabled = text.isNotBlank(), modifier = Modifier.background(if (text.isNotBlank()) PinkAccent else Color.DarkGray, RoundedCornerShape(8.dp)).size(36.dp)) { Icon(Icons.Default.ArrowUpward, null, tint = Color.Black) }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row {
+                ActionChip(Icons.Default.CalendarMonth, if (date != null) formatDate(date!!) else "Set due date", date != null) { showDatePicker = true }
+                Spacer(modifier = Modifier.width(12.dp))
+                Box {
+                    ActionChip(Icons.Default.Repeat, if (repeat != RepeatMode.NONE) repeat.name.lowercase().capitalize() else "Repeat", repeat != RepeatMode.NONE) { showRepeatMenu = true }
+                    DropdownMenu(expanded = showRepeatMenu, onDismissRequest = { showRepeatMenu = false }, containerColor = Color(0xFF2C2C2C)) { RepeatMode.values().forEach { mode -> DropdownMenuItem(text = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }, color = Color.White) }, onClick = { repeat = mode; showRepeatMenu = false }) } }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = { TextButton(onClick = { date = datePickerState.selectedDateMillis; showDatePicker = false }) { Text("OK", color = PinkAccent) } },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel", color = PinkAccent) } },
+            colors = DatePickerDefaults.colors(containerColor = SurfaceColor)
+        ) {
+            DatePicker(state = datePickerState, colors = DatePickerDefaults.colors(headlineContentColor = Color.White, titleContentColor = Color.White, weekdayContentColor = Color.White, dayContentColor = Color.White, selectedDayContainerColor = PinkAccent, todayDateBorderColor = PinkAccent, yearContentColor = Color.White, currentYearContentColor = Color.White, selectedYearContainerColor = PinkAccent))
+        }
+    }
+}
+
+// --- OVERSCROLL ANIMATION LOGIC ---
+fun Modifier.rubberBandEffect(): Modifier = composed {
+    val offsetY = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+
+    val connection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // If overscrolled and scrolling back, consume
+                val delta = available.y
+                if (offsetY.value != 0f) {
+                    val newOffset = offsetY.value + delta
+                    if ((offsetY.value > 0 && newOffset < 0) || (offsetY.value < 0 && newOffset > 0)) {
+                        val consumed = -offsetY.value
+                        scope.launch { offsetY.snapTo(0f) }
+                        return Offset(0f, consumed)
+                    } else {
+                        scope.launch { offsetY.snapTo(newOffset) }
+                        return Offset(0f, delta)
+                    }
+                }
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                // If drag hit bounds, apply resistance
+                if (source == NestedScrollSource.Drag && available.y != 0f) {
+                    val delta = available.y * 0.3f // Damping
+                    scope.launch { offsetY.snapTo(offsetY.value + delta) }
+                    return available
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (offsetY.value != 0f) {
+                    offsetY.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                    return available
+                }
+                return Velocity.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (offsetY.value != 0f) {
+                    offsetY.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                }
+                return super.onPostFling(consumed, available)
+            }
+        }
+    }
+
+    this
+        .nestedScroll(connection)
+        .graphicsLayer {
+            translationY = offsetY.value
+        }
+}

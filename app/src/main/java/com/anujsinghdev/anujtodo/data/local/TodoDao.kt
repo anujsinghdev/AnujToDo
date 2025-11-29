@@ -41,6 +41,18 @@ interface TodoDao {
     @Query("SELECT * FROM todo_lists")
     fun getAllLists(): Flow<List<TodoList>>
 
+    @Query("SELECT * FROM todo_lists WHERE id = :id")
+    fun getListById(id: Long): Flow<TodoList>
+
+    // CHANGED: Returns Long (the new ID) instead of Unit
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertList(list: TodoList)
+    suspend fun insertList(list: TodoList): Long
+
+    // NEW: Update list name
+    @Query("UPDATE todo_lists SET name = :name WHERE id = :id")
+    suspend fun updateListName(id: Long, name: String)
+
+    // NEW: Delete specific list
+    @Query("DELETE FROM todo_lists WHERE id = :id")
+    suspend fun deleteListById(id: Long)
 }
