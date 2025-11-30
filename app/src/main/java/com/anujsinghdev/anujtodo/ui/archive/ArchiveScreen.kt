@@ -6,8 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,6 +36,8 @@ fun ArchiveScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Archive", color = Color.White, fontWeight = FontWeight.Bold) },
+                // FIX: Set windowInsets to 0.dp to remove default status bar padding
+                windowInsets = WindowInsets(0.dp),
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = LoginBlue)

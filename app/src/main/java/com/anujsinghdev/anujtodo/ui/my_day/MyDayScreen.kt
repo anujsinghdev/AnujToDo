@@ -20,8 +20,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.anujsinghdev.anujtodo.domain.model.RepeatMode
-import com.anujsinghdev.anujtodo.ui.list_detail.TaskInputBottomSheet
-import com.anujsinghdev.anujtodo.ui.list_detail.TaskItemView
+import com.anujsinghdev.anujtodo.ui.components.ElasticSwipeToDismiss
+import com.anujsinghdev.anujtodo.ui.list_detail.components.TaskInputBottomSheet
+import com.anujsinghdev.anujtodo.ui.list_detail.components.TaskItemView
 import com.anujsinghdev.anujtodo.ui.todo_list.LoginBlue
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -40,11 +41,14 @@ fun MyDayScreen(
 
     Scaffold(
         containerColor = Color.Black,
+        // FIX: Set contentWindowInsets to 0.dp to remove default system bar padding
+        contentWindowInsets = WindowInsets(0.dp),
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp)
+                    // Adjusted padding: ensure it doesn't conflict with system bars if edge-to-edge is active
+                    .padding(start = 8.dp, end = 8.dp, top = 8.dp)
             ) {
                 IconButton(onClick = { navController.popBackStack() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
@@ -53,7 +57,6 @@ fun MyDayScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                // --- CLICK ACTION ---
                 onClick = { showAddTaskSheet = true },
                 containerColor = LoginBlue,
                 contentColor = Color.White,
@@ -103,29 +106,44 @@ fun MyDayScreen(
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                         }
-                        items(state.overdueTasks) { task ->
-                            TaskItemView(
-                                todo = task,
-                                onToggle = { viewModel.toggleTask(task) },
-                                onFlag = {},
-                                onClick = {}
-                            )
+                        items(items = state.overdueTasks, key = { it.id }) { task ->
+                            ElasticSwipeToDismiss(
+                                onDelete = { viewModel.deleteTask(task) },
+                                onComplete = { viewModel.toggleTask(task) },
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                TaskItemView(
+                                    todo = task,
+                                    onToggle = { viewModel.toggleTask(task) },
+                                    onClick = {}
+                                )
+                            }
                         }
                         item { Spacer(modifier = Modifier.height(16.dp)) }
                     }
 
                     if (state.todayTasks.isNotEmpty()) {
-                        items(state.todayTasks) { task ->
-                            TaskItemView(
-                                todo = task,
-                                onToggle = { viewModel.toggleTask(task) },
-                                onFlag = {},
-                                onClick = {}
-                            )
+                        items(items = state.todayTasks, key = { it.id }) { task ->
+                            ElasticSwipeToDismiss(
+                                onDelete = { viewModel.deleteTask(task) },
+                                onComplete = { viewModel.toggleTask(task) },
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                TaskItemView(
+                                    todo = task,
+                                    onToggle = { viewModel.toggleTask(task) },
+                                    onClick = {}
+                                )
+                            }
                         }
                     } else if (state.overdueTasks.isEmpty()) {
                         item {
-                            Box(modifier = Modifier.fillParentMaxSize().padding(bottom = 100.dp), contentAlignment = Alignment.Center) {
+                            Box(
+                                modifier = Modifier
+                                    .fillParentMaxSize()
+                                    .padding(bottom = 100.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text("No tasks for today", color = Color.Gray.copy(alpha = 0.5f))
                             }
                         }
@@ -141,7 +159,7 @@ fun MyDayScreen(
         TaskInputBottomSheet(
             title = "Add to My Day",
             initialText = "",
-            initialDate = System.currentTimeMillis(), // Default to Today
+            initialDate = System.currentTimeMillis(),
             initialRepeat = RepeatMode.NONE,
             onDismiss = { showAddTaskSheet = false },
             onSave = { title, date, repeat ->

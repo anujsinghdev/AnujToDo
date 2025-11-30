@@ -323,15 +323,13 @@ fun UserListItem(
 fun FolderView(
     folder: UiFolder,
     onToggleExpand: () -> Unit,
-    onAddListToFolder: (String) -> Unit,
+    onAddListToFolder: () -> Unit,  // ✅ No parameter - triggers parent dialog
     onListClick: (UiTaskList) -> Unit,
     onLongClick: () -> Unit = {},
     isSortMode: Boolean = false,
     onMoveUp: () -> Unit = {},
     onMoveDown: () -> Unit = {}
 ) {
-    var showAddListDialog by remember { mutableStateOf(false) }
-
     Column {
         Row(
             modifier = Modifier
@@ -351,17 +349,27 @@ fun FolderView(
                 }
             }
 
-            // --- REPLACED Icon WITH MacosFolderIcon ---
             MacosFolderIcon(modifier = Modifier.size(28.dp))
 
             Spacer(modifier = Modifier.width(20.dp))
-            Text(text = folder.name, fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.White, modifier = Modifier.weight(1f)) // Added color explicitly
+            Text(
+                text = folder.name,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+                modifier = Modifier.weight(1f)
+            )
             if (folder.lists.isNotEmpty()) {
                 Text(text = folder.lists.size.toString(), color = Color.Gray, fontSize = 14.sp)
                 Spacer(modifier = Modifier.width(8.dp))
             }
             val rotation by animateFloatAsState(if (folder.isExpanded) 180f else 0f, label = "arrow")
-            Icon(imageVector = Icons.Default.KeyboardArrowDown, contentDescription = "Expand", tint = Color.Gray, modifier = Modifier.rotate(rotation))
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = "Expand",
+                tint = Color.Gray,
+                modifier = Modifier.rotate(rotation)
+            )
         }
 
         AnimatedVisibility(
@@ -373,28 +381,26 @@ fun FolderView(
                 folder.lists.forEach { list ->
                     UserListItem(list = list, isNested = true, onClick = { onListClick(list) })
                 }
+
+                // ✅ FIXED: Triggers modern dialog in parent
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { showAddListDialog = true }.padding(vertical = 12.dp, horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onAddListToFolder() }
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(20.dp)
+                    )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text("New list", color = Color.Gray, fontSize = 16.sp)
                 }
             }
         }
-    }
-
-    if (showAddListDialog) {
-        CreateDialog(
-            title = "Create list in ${folder.name}",
-            placeholder = "List name",
-            onDismiss = { showAddListDialog = false },
-            onCreate = { name ->
-                onAddListToFolder(name)
-                showAddListDialog = false
-            }
-        )
     }
 }
 
@@ -417,25 +423,40 @@ fun CreateDialog(title: String, placeholder: String, onDismiss: () -> Unit, onCr
                     onValueChange = { text = it },
                     placeholder = { Text(placeholder, color = Color.Gray) },
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = LoginBlue, unfocusedIndicatorColor = Color.Gray,
-                        focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = LoginBlue
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = LoginBlue,
+                        unfocusedIndicatorColor = Color.Gray,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = LoginBlue
                     ),
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
                     singleLine = true
                 )
                 Spacer(modifier = Modifier.height(24.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("CANCEL", color = Color.Gray, fontWeight = FontWeight.SemiBold) }
+                    TextButton(onClick = onDismiss) {
+                        Text("CANCEL", color = Color.Gray, fontWeight = FontWeight.SemiBold)
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(onClick = { if (text.isNotBlank()) onCreate(text) }, enabled = text.isNotBlank()) {
-                        Text(text = title.uppercase().replace("A ", ""), color = if (text.isNotBlank()) LoginBlue else Color.DarkGray, fontWeight = FontWeight.SemiBold)
+                    TextButton(
+                        onClick = { if (text.isNotBlank()) onCreate(text) },
+                        enabled = text.isNotBlank()
+                    ) {
+                        Text(
+                            text = title.uppercase().replace("A ", ""),
+                            color = if (text.isNotBlank()) LoginBlue else Color.DarkGray,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
         }
     }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 }
 
 @Composable
@@ -448,13 +469,28 @@ fun BottomBarAction(onNewListClick: () -> Unit, onNewGroupClick: () -> Unit) {
             modifier = Modifier.clickable { onNewListClick() }.padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(imageVector = Icons.Default.Add, contentDescription = "New List", tint = Color.White, modifier = Modifier.size(28.dp))
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "New List",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp)
+            )
             Spacer(modifier = Modifier.width(12.dp))
-            Text(text = "New list", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "New list",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
         Spacer(modifier = Modifier.weight(1f))
         IconButton(onClick = onNewGroupClick) {
-            Icon(imageVector = Icons.Outlined.CreateNewFolder, contentDescription = "New Group", tint = Color.White, modifier = Modifier.size(28.dp))
+            Icon(
+                imageVector = Icons.Outlined.CreateNewFolder,
+                contentDescription = "New Group",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp)
+            )
         }
     }
 }

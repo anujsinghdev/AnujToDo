@@ -124,4 +124,11 @@ class ListDetailViewModel @Inject constructor(
             repository.updateList(currentList.copy(isArchived = true))
         }
     }
+
+    // In ListDetailViewModel class
+    fun deleteTask(todo: TodoItem) {
+        viewModelScope.launch {
+            repository.deleteTodo(todo)
+        }
+    }
 }

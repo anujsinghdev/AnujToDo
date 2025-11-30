@@ -1,5 +1,10 @@
 package com.anujsinghdev.anujtodo.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -11,8 +16,8 @@ import com.anujsinghdev.anujtodo.ui.list_detail.ListDetailScreen
 import com.anujsinghdev.anujtodo.ui.todo_list.TodoListScreen
 import com.anujsinghdev.anujtodo.ui.util.Screen
 import com.anujsinghdev.anujtodo.ui.my_day.MyDayScreen
-import com.anujsinghdev.anujtodo.ui.pomodoro.PomodoroScreen // Import new screen
-
+import com.anujsinghdev.anujtodo.ui.pomodoro.PomodoroScreen
+import com.anujsinghdev.anujtodo.ui.stats.StatsScreen // Import your StatsScreen
 
 @Composable
 fun Navigation(
@@ -21,35 +26,70 @@ fun Navigation(
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
+        // Optional: Set a default background color for the transition area
+        // modifier = Modifier.background(Color.Black)
     ) {
+
+        // --- 0. Login (No animation needed, usually usually separate) ---
         composable(route = Screen.LoginScreen.route) {
             LoginScreen(navController = navController)
         }
 
-        composable(route = Screen.TodoListScreen.route) {
+        // --- MAIN TABS: Apply Smooth Transitions Here ---
+
+        // 1. HOME SCREEN
+        composable(
+            route = Screen.TodoListScreen.route,
+            enterTransition = {
+                fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.95f, animationSpec = tween(400, easing = FastOutSlowInEasing))
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+            }
+        ) {
             TodoListScreen(navController = navController)
         }
 
-        composable(route = Screen.TodoListScreen.route) {
-            TodoListScreen(navController = navController)
+        // 2. FOCUS (POMODORO) SCREEN
+        composable(
+            route = Screen.PomodoroScreen.route,
+            enterTransition = {
+                fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.95f, animationSpec = tween(400, easing = FastOutSlowInEasing))
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+            }
+        ) {
+            PomodoroScreen(navController = navController)
         }
 
-        // --- NEW ---
+        // 3. STATS SCREEN
+        composable(
+            route = Screen.StatsScreen.route,
+            enterTransition = {
+                fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.95f, animationSpec = tween(400, easing = FastOutSlowInEasing))
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+            }
+        ) {
+            StatsScreen(navController = navController)
+        }
+
+        // --- SUB SCREENS (Default or Slide Animations) ---
+
         composable(route = Screen.ArchiveScreen.route) {
             com.anujsinghdev.anujtodo.ui.archive.ArchiveScreen(navController = navController)
         }
 
-        composable(route = Screen.ArchiveScreen.route) {
-            com.anujsinghdev.anujtodo.ui.archive.ArchiveScreen(navController = navController)
-        }
-
-        // --- NEW ROUTE ---
         composable(route = Screen.MyDayScreen.route) {
             MyDayScreen(navController = navController)
         }
 
-        // New Route for List Details
         composable(
             route = Screen.ListDetailScreen.route,
             arguments = listOf(
@@ -66,12 +106,5 @@ fun Navigation(
                 listName = listName
             )
         }
-
-        // --- NEW POMODORO ROUTE ---
-        composable(route = Screen.PomodoroScreen.route) {
-            PomodoroScreen(navController = navController)
-        }
-
-
     }
 }

@@ -7,6 +7,7 @@ sealed class Screen(val route: String) {
     object MyDayScreen : Screen("my_day_screen")
     object PomodoroScreen : Screen("pomodoro_screen") // <--- New Route
 
+    object StatsScreen : Screen("stats_screen")
 
     // New route with arguments
     object ListDetailScreen : Screen("list_detail_screen/{listId}/{listName}") {

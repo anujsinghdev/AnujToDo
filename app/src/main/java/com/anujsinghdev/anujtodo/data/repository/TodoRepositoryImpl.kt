@@ -1,11 +1,13 @@
 package com.anujsinghdev.anujtodo.data.repository
 
 import com.anujsinghdev.anujtodo.data.local.TodoDao
+import com.anujsinghdev.anujtodo.domain.model.FocusSession
 import com.anujsinghdev.anujtodo.domain.model.TodoItem
 import com.anujsinghdev.anujtodo.domain.model.TodoFolder
 import com.anujsinghdev.anujtodo.domain.model.TodoList
 import com.anujsinghdev.anujtodo.domain.repository.TodoRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class TodoRepositoryImpl(
     private val dao: TodoDao
@@ -41,4 +43,19 @@ class TodoRepositoryImpl(
     override suspend fun updateList(list: TodoList) = dao.updateList(list)
 
     override fun getArchivedLists(): Flow<List<TodoList>> = dao.getArchivedLists()
+
+    // data/repository/TodoRepositoryImpl.kt
+    override suspend fun saveFocusSession(session: FocusSession) {
+        dao.insertFocusSession(session)
+    }
+
+    override fun getFocusSessions(start: Long, end: Long): Flow<List<FocusSession>> {
+        return dao.getFocusSessions(start, end)
+    }
+
+    override fun getTotalFocusMinutes(): Flow<Int> {
+        return dao.getTotalFocusMinutes().map { it ?: 0 }
+    }
+
+    override fun getCompletedTaskCount(): Flow<Int> = dao.getCompletedTaskCount()
 }

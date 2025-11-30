@@ -88,7 +88,10 @@ fun PomodoroScreen(
                             popUpTo(Screen.TodoListScreen.route) { inclusive = true }
                         }
                         1 -> { /* Already on Focus */ }
-                        2 -> { /* Navigate to Stats */ }
+                        2 -> navController.navigate(Screen.StatsScreen.route) {
+                            // Optional: avoid building up a huge stack of Stats screens
+                            launchSingleTop = true
+                        }
                     }
                 }
             )

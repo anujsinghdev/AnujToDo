@@ -59,6 +59,13 @@ class MyDayViewModel @Inject constructor(
         }
     }
 
+    // In MyDayViewModel class
+    fun deleteTask(todo: TodoItem) {
+        viewModelScope.launch {
+            repository.deleteTodo(todo)
+        }
+    }
+
     // --- NEW FUNCTION ---
     fun addTask(title: String, dueDate: Long?, repeatMode: RepeatMode) {
         viewModelScope.launch {

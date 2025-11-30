@@ -11,13 +11,12 @@ android {
     namespace = "com.anujsinghdev.anujtodo"
 
     // Changed to 35 (Android 15) for stability.
-    // If you explicitly need Android 16 Preview, ensure you have the preview SDK installed.
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.anujsinghdev.anujtodo"
         minSdk = 28
-        targetSdk = 36 // Matched compileSdk
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -55,6 +54,16 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
 
+    // ==========================================================
+    // 1. ADDED: Fixes 'Cannot resolve symbol Theme.Material3'
+    // ==========================================================
+    implementation("com.google.android.material:material:1.12.0")
+
+    // ==========================================================
+    // 2. ADDED: Fixes 'Unresolved reference: by viewModels()'
+    // ==========================================================
+    implementation("androidx.activity:activity-ktx:1.9.3")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -75,9 +84,13 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
 
     // --- NAVIGATION & ICONS ---
-    implementation("androidx.navigation:navigation-compose:2.8.0") // Updated to 2.8.0 for better Kotlin 2.0 support
-    implementation("androidx.compose.material:material-icons-extended:1.7.0") // Updated
+    implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("androidx.compose.material:material-icons-extended:1.7.0")
 
     // --- DATASTORE ---
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    implementation("nl.dionsegijn:konfetti-compose:2.0.5")
+
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }

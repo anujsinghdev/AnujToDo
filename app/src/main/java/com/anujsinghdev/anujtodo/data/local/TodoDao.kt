@@ -6,8 +6,9 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
-import com.anujsinghdev.anujtodo.domain.model.TodoItem
+import com.anujsinghdev.anujtodo.domain.model.FocusSession
 import com.anujsinghdev.anujtodo.domain.model.TodoFolder
+import com.anujsinghdev.anujtodo.domain.model.TodoItem
 import com.anujsinghdev.anujtodo.domain.model.TodoList
 import kotlinx.coroutines.flow.Flow
 
@@ -69,4 +70,20 @@ interface TodoDao {
     // 7. Get Archived Lists
     @Query("SELECT * FROM todo_lists WHERE isArchived = 1 ORDER BY id DESC")
     fun getArchivedLists(): Flow<List<TodoList>>
+
+    // --- Stats / Focus History ---
+    @Insert
+    suspend fun insertFocusSession(session: FocusSession)
+
+    // Get sessions for a specific time range (e.g., this week)
+    @Query("SELECT * FROM focus_sessions WHERE timestamp BETWEEN :start AND :end ORDER BY timestamp DESC")
+    fun getFocusSessions(start: Long, end: Long): Flow<List<FocusSession>>
+
+    // Get total minutes focused ever (For Gamification Level)
+    @Query("SELECT SUM(durationMinutes) FROM focus_sessions")
+    fun getTotalFocusMinutes(): Flow<Int?>
+
+    // [NEW] Get count of completed tasks for stats
+    @Query("SELECT COUNT(*) FROM todo_items WHERE isCompleted = 1")
+    fun getCompletedTaskCount(): Flow<Int>
 }

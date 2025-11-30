@@ -1,5 +1,6 @@
 package com.anujsinghdev.anujtodo.domain.repository
 
+import com.anujsinghdev.anujtodo.domain.model.FocusSession
 import com.anujsinghdev.anujtodo.domain.model.TodoItem
 import com.anujsinghdev.anujtodo.domain.model.TodoFolder
 import com.anujsinghdev.anujtodo.domain.model.TodoList
@@ -25,4 +26,10 @@ interface TodoRepository {
     suspend fun updateList(list: TodoList)
 
     fun getArchivedLists(): Flow<List<TodoList>> // <--- Add this
+
+    suspend fun saveFocusSession(session: FocusSession)
+    fun getFocusSessions(start: Long, end: Long): Flow<List<FocusSession>>
+    fun getTotalFocusMinutes(): Flow<Int>
+
+    fun getCompletedTaskCount(): Flow<Int> // <--- Add this
 }
