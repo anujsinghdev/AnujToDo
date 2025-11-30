@@ -1,12 +1,8 @@
-Here is a professional `README.md` file tailored for your **AnujTodo** app, highlighting its modern UI features and technical stack based on the code you provided.
-
------
 
 # 📝 AnujTodo
 
 AnujTodo is a modern, feature-rich productivity application built entirely with **Kotlin** and **Jetpack Compose**. It goes beyond simple task management by integrating a focus timer (Pomodoro), smart organization (Folders/Lists), and a stunning UI featuring Glassmorphism, Mesh Gradients, and fluid animations.
 
-*(Replace with actual screenshots of your Login, Dashboard, and Pomodoro screens)*
 
 ## ✨ Key Features
 
