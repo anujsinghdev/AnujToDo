@@ -116,8 +116,6 @@ fun StatsScreen(
                     .padding(bottom = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // REMOVED SPACER HERE to remove top padding
-
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -197,7 +195,7 @@ fun StatsScreen(
 
                         NeonBarChart(
                             data = currentChartData,
-                            modifier = Modifier.fillMaxWidth().height(220.dp)
+                            modifier = Modifier.fillMaxWidth().height(240.dp) // Increased height to accommodate labels
                         )
                     }
                 }
@@ -409,18 +407,45 @@ fun TimePeriodSelector(
 fun NeonBarChart(data: List<ChartDataPoint>, modifier: Modifier = Modifier) {
     if (data.isEmpty()) { Box(modifier = modifier, contentAlignment = Alignment.Center) { Text("No data available", color = TextGrey) }; return }
     val maxVal = data.maxOfOrNull { it.value } ?: 1; val scale = if (maxVal == 0) 1f else maxVal.toFloat()
+
     Row(modifier = modifier, horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
         data.forEach { point ->
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                // Display exact time above bar if > 0
+                if (point.value > 0) {
+                    Text(
+                        text = formatChartTime(point.value),
+                        color = if (point.isToday) NeonBlue else TextGrey,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+
                 val barHeightFraction = (point.value / scale).coerceIn(0.05f, 1f)
                 val animatedHeight by animateFloatAsState(targetValue = barHeightFraction, animationSpec = tween(1000), label = "barHeight")
                 val barColor = if (point.isToday) NeonBlue else Color(0xFF2A2A2A)
+
+                // Bar Track
                 Box(modifier = Modifier.height(160.dp).width(20.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF0F0F0F)), contentAlignment = Alignment.BottomCenter) {
                     Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(animatedHeight).clip(RoundedCornerShape(10.dp)).background(Brush.verticalGradient(colors = listOf(barColor, barColor.copy(alpha = 0.5f)))))
                 }
                 Spacer(modifier = Modifier.height(10.dp))
+                // X Axis Label
                 Text(text = point.label, color = if (point.isToday) NeonBlue else TextGrey, fontSize = 11.sp, fontWeight = if (point.isToday) FontWeight.Bold else FontWeight.Normal)
             }
         }
+    }
+}
+
+// Helper to format minutes into "1h 30m" or "45m"
+fun formatChartTime(minutes: Int): String {
+    val h = minutes / 60
+    val m = minutes % 60
+    return when {
+        h > 0 && m > 0 -> "${h}h ${m}m"
+        h > 0 -> "${h}h"
+        else -> "${m}m"
     }
 }
