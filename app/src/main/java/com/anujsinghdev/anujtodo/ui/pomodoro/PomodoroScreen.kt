@@ -57,7 +57,20 @@ fun PomodoroScreen(
     val timeLeft by viewModel.timeLeftInMillis
     val initialTime by viewModel.initialTimeInMillis
     val isRunning by viewModel.isTimerRunning
-    val customDurations by viewModel.customDurations.collectAsState() // Collect custom durations
+    val customDurations by viewModel.customDurations.collectAsState()
+
+    // 1. Create Snackbar State
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // 2. Listen for the Timer Finish Event
+    LaunchedEffect(Unit) {
+        viewModel.timerFinishedEvent.collect {
+            snackbarHostState.showSnackbar(
+                message = "Focus session completed!",
+                withDismissAction = true
+            )
+        }
+    }
 
     val isSessionActive = remember(timeLeft, initialTime, isRunning) {
         isRunning || timeLeft != initialTime
@@ -78,6 +91,8 @@ fun PomodoroScreen(
 
     Scaffold(
         containerColor = Color.Black,
+        // 3. attach the SnackbarHost here
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             GlassBottomNavigation(
                 items = navItems,
@@ -89,7 +104,6 @@ fun PomodoroScreen(
                         }
                         1 -> { /* Already on Focus */ }
                         2 -> navController.navigate(Screen.StatsScreen.route) {
-                            // Optional: avoid building up a huge stack of Stats screens
                             launchSingleTop = true
                         }
                     }
@@ -104,7 +118,7 @@ fun PomodoroScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // Timer Section - Takes most of the space and keeps timer centered
+            // Timer Section
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -128,7 +142,7 @@ fun PomodoroScreen(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // Timer text overlay - Always centered
+                        // Timer text overlay
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
@@ -175,7 +189,7 @@ fun PomodoroScreen(
                     }
                 }
 
-                // --- EDIT BUTTON (Positioned at bottom of Box, doesn't affect center) ---
+                // --- EDIT BUTTON ---
                 androidx.compose.animation.AnimatedVisibility(
                     visible = !isSessionActive,
                     modifier = Modifier
@@ -212,7 +226,7 @@ fun PomodoroScreen(
                 }
             }
 
-            // --- CONTROLS SECTION (Fixed at bottom) ---
+            // --- CONTROLS SECTION ---
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -271,7 +285,7 @@ fun PomodoroScreen(
         }
     }
 
-    // Updated dialog with custom duration support
+    // Dialogs remain unchanged
     if (showTimeDialog) {
         TimeSelectionDialog(
             currentMinutes = (initialTime / 1000 / 60).toInt(),
@@ -291,6 +305,7 @@ fun PomodoroScreen(
     }
 }
 
+// ... Rest of the helper components (CircularProgressTimer, PulsingDot, etc.) remain the same ...
 @Composable
 fun CircularProgressTimer(
     progress: Float,
@@ -314,7 +329,6 @@ fun CircularProgressTimer(
         val diameter = size.minDimension
         val topLeft = Offset((size.width - diameter + strokeWidth) / 2, (size.height - diameter + strokeWidth) / 2)
 
-        // Background circle
         drawArc(
             color = Color(0xFF1A1A1A),
             startAngle = -90f,
@@ -325,7 +339,6 @@ fun CircularProgressTimer(
             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
         )
 
-        // Progress arc with gradient
         if (animatedProgress > 0f) {
             drawArc(
                 brush = Brush.sweepGradient(
@@ -476,7 +489,6 @@ fun TimeSelectionDialog(
                                         isCustom = true
                                     )
                                 }
-                                // Fill remaining space if row not full
                                 repeat(4 - rowItems.size) {
                                     Spacer(modifier = Modifier.weight(1f))
                                 }
@@ -492,7 +504,6 @@ fun TimeSelectionDialog(
                     }
                 }
 
-                // Add custom duration button/input
                 if (showCustomInput) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),

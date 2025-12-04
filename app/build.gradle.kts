@@ -63,6 +63,7 @@ dependencies {
     // 2. ADDED: Fixes 'Unresolved reference: by viewModels()'
     // ==========================================================
     implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation(libs.androidx.compose.foundation)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

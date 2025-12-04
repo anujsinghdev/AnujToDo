@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.anujsinghdev.anujtodo.data.local.UserPreferencesRepository
@@ -105,6 +106,7 @@ class StatsViewModel @Inject constructor(
 
     // --- IMPORT / EXPORT LOGIC ---
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     fun exportData() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -227,16 +229,38 @@ class StatsViewModel @Inject constructor(
             it.completedAt != null && it.completedAt >= todayStart && it.completedAt <= todayEnd
         }
 
-        // 3. Level Calculations
-        val minutesPerLevel = 600
-        val currentLevel = (totalMinutes / minutesPerLevel) + 1
-        val minutesInCurrentLevel = totalMinutes % minutesPerLevel
-        val progress = minutesInCurrentLevel / minutesPerLevel.toFloat()
-        val hoursForNextLevel = 10 - (minutesInCurrentLevel / 60)
+        // 3. Level Calculations (Updated for 50/50 Weightage)
+
+        // Logic: Convert everything to "Experience Points" (XP)
+        // - 1 Minute of Focus = 1 XP
+        // - 1 Completed Task = 30 XP (Assume ~30 mins effort per task to balance it)
+
+        val xpPerMinute = 1
+        val xpPerTask = 30
+        val xpPerLevel = 600 // Needs 600 XP to level up (10 hrs focus OR 20 tasks)
+
+        val xpFromFocus = totalMinutes * xpPerMinute
+        val xpFromTasks = totalTasksCount * xpPerTask
+
+        val totalXP = xpFromFocus + xpFromTasks
+
+        val currentLevel = (totalXP / xpPerLevel) + 1
+        val xpInCurrentLevel = totalXP % xpPerLevel
+        val progress = xpInCurrentLevel / xpPerLevel.toFloat()
+
+        // Calculate estimated hours to next level based on remaining XP
+        // We divide by 60 to show "Hours equivalent" in the UI
+        val xpRemaining = xpPerLevel - xpInCurrentLevel
+        val hoursForNextLevel = (xpRemaining / 60).coerceAtLeast(1)
 
         val title = when (currentLevel) {
-            in 1..10 -> "Novice"; in 11..50 -> "Apprentice"; in 51..100 -> "Adept"
-            in 101..300 -> "Expert"; in 301..600 -> "Master"; in 601..999 -> "Grandmaster"; else -> "Legend"
+            in 1..10 -> "Novice"
+            in 11..50 -> "Apprentice"
+            in 51..100 -> "Adept"
+            in 101..300 -> "Expert"
+            in 301..600 -> "Master"
+            in 601..999 -> "Grandmaster"
+            else -> "Legend"
         }
 
         return UserStats(
